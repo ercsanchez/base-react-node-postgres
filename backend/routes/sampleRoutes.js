@@ -1,4 +1,4 @@
-const { sampleUser } = require('../models/User');
+const sampleUser = require('../data/seedData');
 
 module.exports = (app) => {
   app.get('/sample-route', (req, res) => {
@@ -6,6 +6,11 @@ module.exports = (app) => {
   });
 
   app.get('/user', (req, res) => {
-    res.send({ email: sampleUser.email, password: sampleUser.password });
+    res.send({
+      email: sampleUser.email,
+      password: sampleUser.password,
+      profile: sampleUser.profile,
+      posts: sampleUser.posts,
+    });
   });
 };
