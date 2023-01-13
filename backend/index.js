@@ -1,5 +1,4 @@
 const express = require('express');
-require('./prisma/seed');
 
 const app = express();
 
