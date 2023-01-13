@@ -5,6 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "server": "npm run start --prefix backend",
+    "client": "npm run start --prefix frontend",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
     "eslint": "npx eslint --cache '**/*.+(js)'",
     "stylelint": "npx stylelint --cache '**/*.{css,scss,sass}'",
     "lint": "npx concurrently 'npm run eslint' 'npm run stylelint'",
