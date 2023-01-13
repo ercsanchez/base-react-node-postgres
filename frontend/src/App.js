@@ -17,6 +17,8 @@ function App() {
         >
           Learn React
         </a>
+        <a href="/sample-route">Go to sample route.</a>
+        <a href="/user">Go to user route</a>
       </header>
     </div>
   );
