@@ -1,39 +1,38 @@
 const { PrismaClient } = require('@prisma/client');
 
-const sampleUser = require('../data/seedData');
+const seedData = require('../data/seedData');
 
 const prisma = new PrismaClient();
 
 async function main() {
   // ... you will write your Prisma Client queries here
 
-  // check if table User is already seeded
-  const countUserTableRows = await prisma.user.count();
-  if (countUserTableRows === 0) {
-    const seededUser = await prisma.user.upsert({
-      where: { email: sampleUser.email },
-      update: {},
-      create: {
-        name: sampleUser.name,
-        email: sampleUser.email,
-        posts: { create: sampleUser.posts },
-        profile: { create: sampleUser.profile },
+  // delete all records from all tables
+  const deletePosts = prisma.post.deleteMany();
+  const deleteProfile = prisma.profile.deleteMany();
+  const deleteUsers = prisma.user.deleteMany();
+  await prisma.$transaction([deleteProfile, deletePosts, deleteUsers]);
+
+  // seed the db with data
+  seedData.map(async (user) => {
+    const dbRecords = await prisma.user.create({
+      data: {
+        name: user.name,
+        email: user.email,
+        posts: {
+          create: user.posts,
+        },
+        profile: {
+          create: user.profile,
+        },
+      },
+      include: {
+        posts: true,
+        profile: true,
       },
     });
-
-    console.log('Seeded user: ', seededUser);
-    return;
-  }
-
-  const foundUser = await prisma.user.findUnique({
-    where: { email: sampleUser.email },
-    include: {
-      posts: true,
-      profile: true,
-    },
+    return dbRecords;
   });
-
-  console.log('Found user: ', foundUser);
 }
 
 main()
