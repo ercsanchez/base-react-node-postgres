@@ -1,0 +1,118 @@
+name: Development Pipeline
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [dev, workflow-dev]
+  pull_request:
+    branches: [dev, workflow-dev]
+    types: [opened]
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Get code
+        uses: actions/checkout@v3
+        # frontend and backend build should be separated since they have different engines field in package.json
+      - name: Install NodeJS
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18 # no issue even if backend uses node v16 since this is just linting and testing on frontend
+      - name: Cache dependencies
+        id: cache
+        uses: actions/cache@v3
+        with:
+          # replace this with node_modules but how to reference different paths since 3 dirs (root, frontend, backend)
+          # check if cache size changes when you remove a path
+          # check if path means the folder structure of cache
+          path: |
+            node_modules
+            ./frontend/node_modules
+            ./backend/node_modules
+          # check if hashFiles looks for all package-lock.json files in all directories
+          # glob pattern is correct
+          # check if hash changes when you add a dependency in frontend
+          key: deps-node-modules-${{ hashFiles('**/package-lock.json') }}
+      - name: Install dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        # check deps installed again
+        run: |
+          npm ci --prefix .
+          npm ci --prefix ./frontend
+          npm ci --prefix ./backend
+      - name: Lint code
+        run: npm run lint
+      - name: Test code
+        run: npm run test --prefix ./frontend
+
+  # how to test app when frontend are backend are running
+  # extract test job from lint-test when you already have implemented integration/end-to-end testing (client to server)
+
+  test-integration:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Install NodeJS
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18 # backend uses node v16 but this may not be an issue since we will be dockerizing the backend
+      - name: Integration test
+        run: |
+          echo "Testing integration..."
+
+  build-frontend:
+    # build job needs the test-job for performing tests when app is running
+    needs: test-integration
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Get code
+        uses: actions/checkout@v3
+      - name: Install NodeJS
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18 # only for backend
+      - name: Cache dependencies
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            node_modules
+            ./frontend/node_modules
+            ./backend/node_modules
+          key: deps-node-modules-${{ hashFiles('**/package-lock.json') }}
+      - name: Install dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          echo "Installing deps..."
+          npm ci
+          npm ci --prefix ./frontend
+          npm ci --prefix ./backend
+        # npm ci --prefix . && npm ci --prefix frontend && npm ci --prefix backend
+
+      - name: Build frontend
+        id: build-frontend
+        run: |
+          echo "Building frontend..."
+          npm run build --prefix ./frontend
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-files
+          path: |
+            ./frontend/build
+
+  build-backend:
+    needs: test-integration
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Build backend
+        run: |
+          echo "Building backend..."
+
+  deploy:
+    needs: [build-frontend, build-backend]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Deploy to Development
+        run: |
+          echo "Deploying frontend to Vercel and backend to DO"
