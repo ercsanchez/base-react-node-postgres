@@ -7,6 +7,7 @@ app.get('/', (req, res) => {
 });
 
 require('./routes/sampleRoutes')(app);
+require('./routes/users')(app);
 
 app.listen(process.env.PORT || 5000, () => {
   console.log('Server running...');
