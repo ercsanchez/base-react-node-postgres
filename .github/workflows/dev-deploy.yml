@@ -84,11 +84,9 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           echo "Installing deps..."
-          npm ci
           npm ci --prefix ./frontend
-          npm ci --prefix ./backend
-        # npm ci --prefix . && npm ci --prefix frontend && npm ci --prefix backend
-
+        # npm ci --prefix . && npm ci --prefix frontend
+        # no need to install project and backend deps in this job
       - name: Build frontend
         id: build-frontend
         run: |
