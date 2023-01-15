@@ -10,7 +10,8 @@ module.exports = {
     ecmaVersion: 'latest',
     sourceType: 'module',
   },
-  ignorePatterns: ['node_modules', 'dist'],
+  // eslint doesn't function as expected using ignorePatterns so just use .eslintignore
+  // ignorePatterns: ['**/node_modules/**', '**/build/**'],
   rules: {
     'no-unused-vars': 'warn',
     'no-console': 'off',

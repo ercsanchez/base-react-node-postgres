@@ -1,0 +1,14 @@
+# ignores all css files in node_modules | there are no css files in node_modules
+# **/node_modules/**
+node_modules
+
+# ignores all css files in build
+# **/build/**
+build
+
+# ignores all file extensions that are not css
+# **/*.!(css|scss|sass)
+# gitignore can't handle ! so use ignoreFiles field in .stylelintrc.js
+
+# ignores all files that have no extensions (e.g. LICENSE)
+# **/!(*.*)
