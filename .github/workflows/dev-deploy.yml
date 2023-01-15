@@ -8,9 +8,12 @@ on:
     branches: [dev, workflow-dev]
     types: [opened]
 
+env:
+  NODE_VERSION: 18
+
 jobs:
-  lint-test:
-    runs-on: ubuntu-22.04
+  lint:
+    runs-on: ubuntu-latest
     steps:
       - name: Get code
         uses: actions/checkout@v3
@@ -18,7 +21,7 @@ jobs:
       - name: Install NodeJS
         uses: actions/setup-node@v3
         with:
-          node-version: 18 # no issue even if backend uses node v16 since this is just linting and testing on frontend
+          node-version: ${{ env.NODE_VERSION }} # no issue even if backend uses node v16 since this is just linting and testing on frontend
       - name: Cache dependencies
         id: cache
         uses: actions/cache@v3
@@ -43,55 +46,39 @@ jobs:
           npm ci --prefix ./backend
       - name: Lint code
         run: npm run lint
-      - name: Test code
-        run: npm run test --prefix ./frontend
 
-  # how to test app when frontend are backend are running
-  # extract test job from lint-test when you already have implemented integration/end-to-end testing (client to server)
-
-  test-integration:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Install NodeJS
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18 # backend uses node v16 but this may not be an issue since we will be dockerizing the backend
-      - name: Integration test
-        run: |
-          echo "Testing integration..."
-
-  build-frontend:
-    # build job needs the test-job for performing tests when app is running
-    needs: test-integration
-    runs-on: ubuntu-22.04
+  test-build-frontend:
+    runs-on: ubuntu-latest
     steps:
       - name: Get code
         uses: actions/checkout@v3
       - name: Install NodeJS
         uses: actions/setup-node@v3
         with:
-          node-version: 18 # only for backend
+          node-version: ${{ env.NODE_VERSION }}
       - name: Cache dependencies
         id: cache
         uses: actions/cache@v3
         with:
           path: |
-            node_modules
             ./frontend/node_modules
-            ./backend/node_modules
+          # node_modules ./backend/node_modules
           key: deps-node-modules-${{ hashFiles('**/package-lock.json') }}
       - name: Install dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
-          echo "Installing deps..."
           npm ci --prefix ./frontend
         # npm ci --prefix . && npm ci --prefix frontend
         # no need to install project and backend deps in this job
-      - name: Build frontend
-        id: build-frontend
+      - name: Unit tests
         run: |
-          echo "Building frontend..."
+          npm run test --prefix ./frontend
+      - name: Build frontend
+        run: |
           npm run build --prefix ./frontend
+      - name: Dockerize frontend # may not need docker since can be deployed to a hosted machine for development
+        run: |
+          echo "Building docker image..."
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -99,18 +86,59 @@ jobs:
           path: |
             ./frontend/build
 
-  build-backend:
-    needs: test-integration
-    runs-on: ubuntu-22.04
+  # may not need to be separated from test-build-frontend since this will be dockerized eventually so node-version can be set in the Dockerfile
+  test-build-backend:
+    runs-on: ubuntu-latest
     steps:
+      - name: Get code
+        uses: actions/checkout@v3
+      - name: Install NodeJS
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16 # v16 specified in engines field of package.json
+      - name: Cache dependencies
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ./backend/node_modules
+          # node_modules ./frontend/node_modules
+          key: deps-node-modules-${{ hashFiles('**/package-lock.json') }}
+      - name: Install dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          npm ci --prefix ./backend
+      - name: Unit tests
+        run: |
+          echo "Running unit tests"
+        # npm run test -- prefix ./backend  # add this when unit tests have been added to backend
       - name: Build backend
         run: |
           echo "Building backend..."
+      - name: Dockerize backend
+        run: |
+          echo "Building docker image..."
+
+  # integration tests occur after docker images have been built for both frontend and backend
+  test-integration:
+    needs: [test-build-frontend, test-build-backend]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install NodeJS
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }} # backend uses node v16 but this may not be an issue since we will be dockerizing the frontend and backend
+      - name: Run containers
+        run: |
+          echo "Running docker containers"
+      - name: Integration tests
+        run: |
+          echo "Running integration tests..."
 
   deploy:
-    needs: [build-frontend, build-backend]
-    runs-on: ubuntu-22.04
+    needs: test-integration
+    runs-on: ubuntu-latest
     steps:
-      - name: Deploy to Development
+      - name: Deploy to Development # frontend to Vercel and backend to DO for development
         run: |
           echo "Deploying frontend to Vercel and backend to DO"
